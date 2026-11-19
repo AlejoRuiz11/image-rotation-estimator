@@ -1,0 +1,24 @@
+# Entorno y caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Datos y resultados: NUNCA versionar datos privados
+data/
+private/
+results/
+bench/
+*.tif
+*.tiff
+
+# Sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

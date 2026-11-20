@@ -42,7 +42,7 @@ from rotest.io import (
 )
 from rotest.register import Result, register, set_threads
 from rotest.report import write_report
-from rotest.uncertainty import angle_ci95
+from rotest.uncertainty import SpatialCheck, angle_ci95, angle_uncertainty, spatial_check
 
 SEED = 0
 MOVING_SIZE = (6400, 8200)  # (width, height)
@@ -62,6 +62,7 @@ STAGE_ORDER = [
     "ransac",
     "refine",
     "bootstrap",
+    "spatial",
     "report",
 ]
 
@@ -161,7 +162,7 @@ def prepare_timed(path: Path, timer: Timer, work_size: int) -> Prepared:
 
 def run_pipeline(
     moving_path: Path, reference_path: Path, work_size: int
-) -> tuple[Timer, float, float, Result, tuple[float, float], list[int]]:
+) -> tuple[Timer, float, float, Result, tuple[float, float], SpatialCheck, list[int]]:
     """Run the real pipeline once; return timer, total wall/cpu, result, CI and keypoint counts."""
     timer = Timer()
     keypoints: list[int] = []
@@ -179,11 +180,12 @@ def run_pipeline(
         reference = prepare_timed(reference_path, timer, work_size)
         result = register(moving, reference, timer.progress)
         ci = angle_ci95(result, progress=timer.progress)
+        spatial = spatial_check(result, progress=timer.progress)
         with tempfile.TemporaryDirectory() as out:
-            timer.timed("report", lambda: write_report(out, moving, reference, result, ci))
+            timer.timed("report", lambda: write_report(out, moving, reference, result, ci, spatial))
     finally:
         register_module._detect = original_detect
-    return timer, time.perf_counter() - w0, time.process_time() - c0, result, ci, keypoints
+    return timer, time.perf_counter() - w0, time.process_time() - c0, result, ci, spatial, keypoints
 
 
 def print_table(timer: Timer, total_wall: float, total_cpu: float) -> None:
@@ -294,7 +296,7 @@ def main() -> int:
 
         print(f"moving {MOVING_SIZE}, reference {REFERENCE_SIZE}, truth angle "
               f"{TRUE_ANGLE_CW} deg cw, scale {TRUE_SCALE}\n", flush=True)
-        timer, wall, cpu, result, ci, kps = run_pipeline(
+        timer, wall, cpu, result, ci, spatial, kps = run_pipeline(
             work_dir / "moving.png", work_dir / "reference.png", args.work_size
         )
         print_table(timer, wall, cpu)
@@ -307,10 +309,15 @@ def main() -> int:
             f"{result.angle_cw_deg - TRUE_ANGLE_CW:+.4f}); CI95 [{ci[0]:.4f}, {ci[1]:.4f}]; "
             f"scale {result.scale:.4f} (truth {TRUE_SCALE})"
         )
+        dev = spatial.angle_dev_deg
+        print(
+            f"angle_dev_deg: {'n/a' if dev is None else f'{dev:.4f}'}; "
+            f"angle_uncertainty: +-{angle_uncertainty(ci, spatial):.4f} deg"
+        )
 
         if args.sign:
             print("\n### Sign check (moving generated for truth angle +10 deg larger)\n")
-            _, _, _, rot_result, _, _ = run_pipeline(
+            _, _, _, rot_result, _, _, _ = run_pipeline(
                 work_dir / "moving_rot.png", work_dir / "reference.png", args.work_size
             )
             diff = rot_result.angle_cw_deg - result.angle_cw_deg

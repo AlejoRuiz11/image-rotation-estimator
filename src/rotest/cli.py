@@ -9,7 +9,7 @@ from collections.abc import Sequence
 from rotest.io import DEFAULT_WORK_SIZE, prepare
 from rotest.register import RegistrationError, default_threads, register, set_threads
 from rotest.report import write_report
-from rotest.uncertainty import angle_ci95
+from rotest.uncertainty import angle_ci95, angle_uncertainty, spatial_check
 
 
 def _positive_int(text: str) -> int:
@@ -68,7 +68,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         reference = prepare(args.reference, args.mask_reference, args.work_size)
         result = register(moving, reference)
         ci = angle_ci95(result)
-        warnings = write_report(args.out, moving, reference, result, ci)
+        spatial = spatial_check(result)
+        warnings = write_report(args.out, moving, reference, result, ci, spatial)
     except RegistrationError as exc:
         print(f"error: registration failed, not enough reliable matches: {exc}", file=sys.stderr)
         return 1
@@ -79,6 +80,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(
         f"angle: {result.angle_cw_deg:.3f} deg clockwise "
         f"(95% CI {ci[0]:.3f} to {ci[1]:.3f}), scale: {result.scale:.4f}"
+    )
+    dev = "n/a" if spatial.angle_dev_deg is None else f"{spatial.angle_dev_deg:.4f}"
+    print(
+        f"angle uncertainty: +-{angle_uncertainty(ci, spatial):.3f} deg "
+        f"(bootstrap {(ci[1] - ci[0]) / 2:.4f} + spatial {dev})"
     )
     for warning in warnings:
         print(f"warning: {warning}", file=sys.stderr)

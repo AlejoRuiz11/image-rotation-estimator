@@ -85,6 +85,9 @@ def test_compare_output_format_and_json_keys(
     assert re.fullmatch(
         rf"angle: {num} deg clockwise \(95% CI {num} to {num}\), scale: {num}", lines[0]
     )
+    assert re.fullmatch(
+        rf"angle uncertainty: \+-{num} deg \(bootstrap {num} \+ spatial ({num}|n/a)\)", lines[1]
+    )
     assert lines[-1] == f"outputs written to {out}"
     for name in ("results.json", "overlay.png", "checkerboard.png", "summary.md"):
         assert (out / name).is_file()
@@ -92,7 +95,9 @@ def test_compare_output_format_and_json_keys(
     assert set(data) == {
         "schema_version", "angle_cw_deg", "angle_ci95", "scale", "translation_px",
         "inliers", "matches", "residual_rms_px", "warnings",
+        "angle_uncertainty_deg", "spatial_check",
     }
+    assert data["schema_version"] == 2
 
 
 def _write_mask(tmp_path: Path) -> Path:

@@ -1,0 +1,8 @@
+[server]
+address = "localhost"
+maxUploadSize = 2048
+showEmailPrompt = false
+port = 8501
+
+[browser]
+gatherUsageStats = false

@@ -48,9 +48,10 @@ def quality_warnings(result: Result, spatial: SpatialCheck) -> list[str]:
     return warnings
 
 
-def _warp_moving(
+def warp_moving(
     moving: Prepared, reference: Prepared, result: Result
 ) -> NDArray[np.uint8]:
+    """Moving working image warped onto the reference working grid."""
     ref_h, ref_w = reference.image.shape[:2]
     return cv2.warpAffine(moving.image, result.matrix_work, (ref_w, ref_h))
 
@@ -175,7 +176,7 @@ def write_report(
     }
     (out / "results.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
-    warped = _warp_moving(moving, reference, result)
+    warped = warp_moving(moving, reference, result)
     overlay = cv2.addWeighted(reference.image, 0.5, warped, 0.5, 0)
     for name, img in (
         ("overlay.png", overlay),

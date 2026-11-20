@@ -98,6 +98,19 @@ def _match(des_m: NDArray[np.float32], des_r: NDArray[np.float32]) -> list[cv2.D
     return [p[0] for p in knn if len(p) == 2 and p[0].distance < RATIO * p[1].distance]
 
 
+def _residuals(
+    matrix: NDArray[np.float64], src: NDArray[np.float64], dst: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    """Distance (px) between each source point projected with `matrix` and its destination."""
+    proj = src @ matrix[:, :2].T + matrix[:, 2]
+    return np.sqrt(((proj - dst) ** 2).sum(axis=1))
+
+
+def inlier_residuals(result: Result) -> NDArray[np.float64]:
+    """Per-inlier error `(N,)` in reference working pixels; `residual_rms_px` is its RMS."""
+    return _residuals(result.matrix_work, result.src_pts, result.dst_pts)
+
+
 def register(
     moving: Prepared, reference: Prepared, progress: Progress | None = None
 ) -> Result:
@@ -142,8 +155,7 @@ def register(
     src_in = src[keep].astype(np.float64)
     dst_in = dst[keep].astype(np.float64)
     matrix = fit_similarity(src_in, dst_in)
-    proj = src_in @ matrix[:, :2].T + matrix[:, 2]
-    rms = float(np.sqrt(((proj - dst_in) ** 2).sum(axis=1).mean()))
+    rms = float(np.sqrt((_residuals(matrix, src_in, dst_in) ** 2).mean()))
 
     notify("refine", 1.0)
 

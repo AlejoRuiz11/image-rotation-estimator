@@ -39,17 +39,16 @@ def _wrap(deg: np.ndarray | float) -> np.ndarray | float:
     return 180.0 - np.mod(180.0 - np.asarray(deg), 360.0)
 
 
-def angle_ci95(
+def bootstrap_angles(
     result: Result, n_boot: int = N_BOOT, seed: int = SEED, progress: Progress | None = None
-) -> tuple[float, float]:
-    """95% bootstrap interval `(low, high)` for `result.angle_cw_deg`.
+) -> np.ndarray:
+    """Bootstrap resampled angles, shape `(n_boot,)`, absolute (not wrapped).
 
-    Resamples the inlier pairs with replacement and refits by least squares. Angles are taken
-    as differences from the point estimate, wrapped to (-180, 180], so intervals straddling
-    +-180 deg do not break the percentiles. Endpoints are NOT wrapped: `low <= high` always, and
-    near +-180 deg they may fall outside (-180, 180]. Degenerate resamples are
-    discarded and redrawn. `progress` (optional) receives ("bootstrap", fraction) about every 5%
-    of the resamples.
+    Resamples the inlier pairs with replacement and refits by least squares. Each angle is
+    `result.angle_cw_deg` plus the difference from the point estimate wrapped to (-180, 180], so
+    resamples straddling +-180 deg stay contiguous; the total is NOT wrapped. Degenerate
+    resamples are discarded and redrawn. `progress` (optional) receives ("bootstrap", fraction)
+    about every 5% of the resamples.
     """
     n = len(result.src_pts)
     if n < 3:
@@ -74,8 +73,24 @@ def angle_ci95(
             progress("bootstrap", len(diffs) / n_boot)
     if progress:
         progress("bootstrap", 1.0)
-    lo, hi = np.percentile(diffs, [2.5, 97.5])
-    return (float(result.angle_cw_deg + lo), float(result.angle_cw_deg + hi))
+    return result.angle_cw_deg + np.asarray(diffs)
+
+
+def ci95_from_angles(angles: np.ndarray) -> tuple[float, float]:
+    """95% interval `(low, high)`: percentiles 2.5 and 97.5 of the bootstrap angles."""
+    lo, hi = np.percentile(angles, [2.5, 97.5])
+    return (float(lo), float(hi))
+
+
+def angle_ci95(
+    result: Result, n_boot: int = N_BOOT, seed: int = SEED, progress: Progress | None = None
+) -> tuple[float, float]:
+    """95% bootstrap interval `(low, high)` for `result.angle_cw_deg`.
+
+    Endpoints are NOT wrapped: `low <= high` always, and near +-180 deg they may fall outside
+    (-180, 180]. See `bootstrap_angles` for how the resamples are drawn.
+    """
+    return ci95_from_angles(bootstrap_angles(result, n_boot, seed, progress))
 
 
 def _fit_region(

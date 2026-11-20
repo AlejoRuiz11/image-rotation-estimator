@@ -1,10 +1,13 @@
-"""Command-line interface: `rotest compare MOVING REFERENCE`."""
+"""Command-line interface: `rotest compare MOVING REFERENCE` and `rotest ui`."""
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
+import subprocess
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from rotest.io import DEFAULT_WORK_SIZE, prepare
 from rotest.register import RegistrationError, default_threads, register, set_threads
@@ -56,12 +59,40 @@ def build_parser() -> argparse.ArgumentParser:
         help="OpenCV threads to use (default: %(default)s, half of the logical cores)",
     )
     cmp.add_argument("--out", default="results", help="output directory (default: %(default)s)")
+    ui = sub.add_parser(
+        "ui",
+        help="launch the optional local web interface (needs the 'ui' extra)",
+        description="Launch the local Streamlit interface, bound to localhost only.",
+    )
+    ui.add_argument("--port", type=_positive_int, default=8501, help="port (default: %(default)s)")
     return parser
+
+
+def _run_ui(port: int) -> int:
+    """Launch Streamlit with forced flags: local only, no telemetry, large uploads."""
+    if importlib.util.find_spec("streamlit") is None:
+        print(
+            "error: the UI needs the optional 'ui' extra; install it with: uv sync --extra ui",
+            file=sys.stderr,
+        )
+        return 1
+    app = Path(__file__).with_name("ui.py")
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", str(app),
+        "--server.address", "localhost",
+        "--browser.gatherUsageStats", "false",
+        "--server.maxUploadSize", "2048",
+        "--server.showEmailPrompt", "false",
+        "--server.port", str(port),
+    ]  # fmt: skip
+    return subprocess.run(cmd, check=False).returncode
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI; returns the process exit code (0 ok, 1 failure, 2 bad usage)."""
     args = build_parser().parse_args(argv)
+    if args.command == "ui":
+        return _run_ui(args.port)
     try:
         set_threads(args.threads)
         moving = prepare(args.moving, args.mask_moving, args.work_size)

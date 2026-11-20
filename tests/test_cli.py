@@ -148,3 +148,41 @@ def test_angle_identical_across_thread_counts() -> None:
         cv2.setNumThreads(before)
     assert angles[1] == pytest.approx(angles[0], abs=1e-9)
     assert angles[2] == pytest.approx(angles[0], abs=1e-9)
+
+
+def test_ui_without_extra_fails_with_clear_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: None)
+    assert main(["ui"]) == 1
+    assert capsys.readouterr().err.strip() == (
+        "error: the UI needs the optional 'ui' extra; install it with: uv sync --extra ui"
+    )
+
+
+def test_ui_launches_streamlit_with_forced_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    import subprocess
+    import sys
+
+    calls: list[list[str]] = []
+
+    def fake_run(cmd: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr("importlib.util.find_spec", lambda name: object())
+    monkeypatch.setattr("subprocess.run", fake_run)
+    assert main(["ui", "--port", "8600"]) == 0
+    cmd = calls[0]
+    assert cmd[:4] == [sys.executable, "-m", "streamlit", "run"]
+    assert cmd[4].endswith("ui.py")
+    flags = cmd[5:]
+    for pair in (
+        ["--server.address", "localhost"],
+        ["--browser.gatherUsageStats", "false"],
+        ["--server.maxUploadSize", "2048"],
+        ["--server.showEmailPrompt", "false"],
+        ["--server.port", "8600"],
+    ):
+        i = flags.index(pair[0])
+        assert flags[i : i + 2] == pair

@@ -7,7 +7,14 @@ import pytest
 from rotest.geometry import from_matrix, to_matrix
 from rotest.register import Result, fit_similarity, register
 from rotest.report import SPATIAL_DEV_WARN_DEG, quality_warnings
-from rotest.uncertainty import SpatialCheck, angle_ci95, angle_uncertainty, spatial_check
+from rotest.uncertainty import (
+    SpatialCheck,
+    angle_ci95,
+    angle_uncertainty,
+    bootstrap_angles,
+    ci95_from_angles,
+    spatial_check,
+)
 
 
 def _make_result(true_angle: float, noise: float, seed: int = 1, n: int = 200) -> Result:
@@ -147,3 +154,37 @@ def test_spatial_progress_events() -> None:
         _make_result(10.0, noise=1.0), n_boot=20, progress=lambda s, f: events.append((s, f))
     )
     assert events == [("spatial", 0.0), ("spatial", 1.0)]
+
+
+def _reference_ci95(res: Result, n_boot: int = 1000, seed: int = 0) -> tuple[float, float]:
+    """The previous algorithm, kept here to prove `angle_ci95` did not change."""
+    rng = np.random.default_rng(seed)
+    n = len(res.src_pts)
+    diffs: list[float] = []
+    while len(diffs) < n_boot:
+        idx = rng.integers(0, n, size=n)
+        m = fit_similarity(res.src_pts[idx], res.dst_pts[idx])
+        d = from_matrix(m)[0] - res.angle_cw_deg
+        diffs.append(180.0 - np.mod(180.0 - d, 360.0))
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    return (float(res.angle_cw_deg + lo), float(res.angle_cw_deg + hi))
+
+
+def test_angle_ci95_unchanged_by_refactor() -> None:
+    for angle in (-179.0, 5.0, 178.0):
+        res = _make_result(angle, noise=1.0)
+        assert angle_ci95(res) == pytest.approx(_reference_ci95(res), abs=1e-9)
+
+
+def test_bootstrap_angles_absolute_and_deterministic() -> None:
+    res = _make_result(179.0, noise=2.0)
+    angles = bootstrap_angles(res, n_boot=200)
+    assert angles.shape == (200,)
+    assert np.array_equal(angles, bootstrap_angles(res, n_boot=200))
+    assert abs(float(np.median(angles)) - res.angle_cw_deg) < 1.0  # not wrapped: near 179
+    assert ci95_from_angles(angles) == angle_ci95(res, n_boot=200)
+
+
+def test_ci95_from_angles_percentiles() -> None:
+    lo, hi = ci95_from_angles(np.arange(101.0))
+    assert (lo, hi) == pytest.approx((2.5, 97.5))

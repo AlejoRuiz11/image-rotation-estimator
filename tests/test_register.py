@@ -8,7 +8,7 @@ import pytest
 
 from rotest.geometry import to_matrix
 from rotest.io import Prepared, apply_clahe
-from rotest.register import RegistrationError, _match, fit_similarity, register
+from rotest.register import RegistrationError, _match, fit_similarity, inlier_residuals, register
 
 
 def _texture(size: int = 600, seed: int = 0) -> np.ndarray:
@@ -134,3 +134,12 @@ def test_match_ratio_rule():
     des_r2[1, 0] = -1.0
     des_m2 = np.zeros((1, 128), np.float32)
     assert _match(des_m2, des_r2) == []
+
+
+def test_inlier_residuals_rms_matches_result():
+    mov, ref = _pair(12.0, 1.05, 10.0, -5.0)
+    r = register(mov, ref)
+    res = inlier_residuals(r)
+    assert res.shape == (r.inliers,)
+    assert (res >= 0).all()
+    assert float(np.sqrt((res**2).mean())) == pytest.approx(r.residual_rms_px, abs=1e-12)

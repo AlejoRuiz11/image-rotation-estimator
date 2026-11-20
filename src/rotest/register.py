@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import cv2
@@ -12,7 +14,26 @@ from rotest.geometry import from_matrix
 from rotest.io import Prepared
 
 RATIO = 0.75
+FLANN_TREES = 4  # KD-tree count, fixed for reproducible results
+FLANN_CHECKS = 128  # leaves visited per query, fixed for reproducible results
+FLANN_SEED = 0  # reseeds OpenCV's RNG before matching so results are reproducible
+_FLANN_INDEX_KDTREE = 1
 MIN_INLIERS = 3  # a similarity has 4 DOF; 2 point pairs are enough, 3 gives a sanity margin
+
+# progress(stage, fraction): fraction in [0, 1] within the stage; (stage, 0.0) on start, (stage, 1.0) on end.
+Progress = Callable[[str, float], None]
+
+
+def default_threads() -> int:
+    """Half of the logical cores (at least 1), to leave the machine usable while it runs."""
+    return max(1, (os.cpu_count() or 2) // 2)
+
+
+def set_threads(n: int) -> None:
+    """Limit OpenCV's thread pool (it dominates CPU use, mostly in matching)."""
+    if n < 1:
+        raise ValueError(f"threads must be >= 1, got {n}")
+    cv2.setNumThreads(n)
 
 
 class RegistrationError(ValueError):
@@ -63,21 +84,49 @@ def _detect(img: NDArray[np.uint8], mask: NDArray[np.uint8] | None):
     return cv2.SIFT_create().detectAndCompute(img, mask)
 
 
-def register(moving: Prepared, reference: Prepared) -> Result:
-    """Estimate the similarity moving -> reference and convert it to original pixels."""
+def _match(des_m: NDArray[np.float32], des_r: NDArray[np.float32]) -> list[cv2.DMatch]:
+    """FLANN KD-tree kNN matching followed by the ratio test.
+
+    The KD-tree is built with OpenCV's global random generator, so without a fixed seed two calls in the same
+    process can return different pairs. We reseed right before matching to make the result reproducible.
+    """
+    cv2.setRNGSeed(FLANN_SEED)
+    matcher = cv2.FlannBasedMatcher(
+        {"algorithm": _FLANN_INDEX_KDTREE, "trees": FLANN_TREES}, {"checks": FLANN_CHECKS}
+    )
+    knn = matcher.knnMatch(des_m, des_r, k=2)
+    return [p[0] for p in knn if len(p) == 2 and p[0].distance < RATIO * p[1].distance]
+
+
+def register(
+    moving: Prepared, reference: Prepared, progress: Progress | None = None
+) -> Result:
+    """Estimate the similarity moving -> reference and convert it to original pixels.
+
+    `progress` (optional) receives stage events: detect_moving, detect_reference, match,
+    ransac, refine.
+    """
+    notify = progress or (lambda stage, fraction: None)
+    notify("detect_moving", 0.0)
     kp_m, des_m = _detect(moving.image, moving.mask)
+    notify("detect_moving", 1.0)
+    notify("detect_reference", 0.0)
     kp_r, des_r = _detect(reference.image, reference.mask)
+    notify("detect_reference", 1.0)
     if des_m is None or des_r is None or len(kp_m) < 2 or len(kp_r) < 2:
         raise RegistrationError("not enough features detected")
 
-    knn = cv2.BFMatcher(cv2.NORM_L2).knnMatch(des_m, des_r, k=2)
-    good = [p[0] for p in knn if len(p) == 2 and p[0].distance < RATIO * p[1].distance]
+    notify("match", 0.0)
+    good = _match(des_m, des_r)
     if len(good) < MIN_INLIERS:
         raise RegistrationError(f"only {len(good)} matches after ratio test")
+
+    notify("match", 1.0)
 
     src = np.float32([kp_m[m.queryIdx].pt for m in good])
     dst = np.float32([kp_r[m.trainIdx].pt for m in good])
     # Moving points are the source, so the matrix maps moving -> reference.
+    notify("ransac", 0.0)
     _, inlier_mask = cv2.estimateAffinePartial2D(
         src, dst, method=cv2.RANSAC, ransacReprojThreshold=3.0
     )
@@ -87,11 +136,16 @@ def register(moving: Prepared, reference: Prepared) -> Result:
     if keep.sum() < MIN_INLIERS:
         raise RegistrationError(f"only {int(keep.sum())} inliers")
 
+    notify("ransac", 1.0)
+
+    notify("refine", 0.0)
     src_in = src[keep].astype(np.float64)
     dst_in = dst[keep].astype(np.float64)
     matrix = fit_similarity(src_in, dst_in)
     proj = src_in @ matrix[:, :2].T + matrix[:, 2]
     rms = float(np.sqrt(((proj - dst_in) ** 2).sum(axis=1).mean()))
+
+    notify("refine", 1.0)
 
     angle, s_w, tx_w, ty_w = from_matrix(matrix)
     f_m, f_r = moving.scale_factor, reference.scale_factor

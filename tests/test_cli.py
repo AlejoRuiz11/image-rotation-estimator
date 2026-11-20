@@ -1,5 +1,7 @@
 """CLI tests with synthetic images written to tmp_path (no network)."""
 
+import json
+import re
 from pathlib import Path
 
 import cv2
@@ -61,3 +63,83 @@ def test_help_mentions_options(capsys: pytest.CaptureFixture[str]) -> None:
     assert exc.value.code == 0
     out = capsys.readouterr().out
     assert "--mask-reference" in out and "--out" in out
+
+
+def test_compare_output_format_and_json_keys(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Safety net: stdout format and results.json keys are a contract."""
+    mov, ref = _write_pair(tmp_path)
+    out = tmp_path / "out"
+    code = main(
+        [
+            "compare", str(mov), str(ref),
+            "--mask-moving", str(_write_mask(tmp_path)),
+            "--work-size", "512",
+            "--out", str(out),
+        ]
+    )
+    assert code == 0
+    lines = capsys.readouterr().out.splitlines()
+    num = r"-?\d+\.\d+"
+    assert re.fullmatch(
+        rf"angle: {num} deg clockwise \(95% CI {num} to {num}\), scale: {num}", lines[0]
+    )
+    assert lines[-1] == f"outputs written to {out}"
+    for name in ("results.json", "overlay.png", "checkerboard.png", "summary.md"):
+        assert (out / name).is_file()
+    data = json.loads((out / "results.json").read_text(encoding="utf-8"))
+    assert set(data) == {
+        "schema_version", "angle_cw_deg", "angle_ci95", "scale", "translation_px",
+        "inliers", "matches", "residual_rms_px", "warnings",
+    }
+
+
+def _write_mask(tmp_path: Path) -> Path:
+    path = tmp_path / "mask_mov.png"
+    cv2.imwrite(str(path), np.full((600, 600), 255, np.uint8))
+    return path
+
+
+def test_threads_zero_exits_2(capsys) -> None:
+    with pytest.raises(SystemExit) as exc:
+        main(["compare", "a.png", "b.png", "--threads", "0"])
+    assert exc.value.code == 2
+    assert "--threads" in capsys.readouterr().err
+
+
+def test_set_threads_validates_and_default_is_half_of_cores() -> None:
+    import os
+
+    import cv2
+
+    from rotest.register import default_threads, set_threads
+
+    assert default_threads() == max(1, (os.cpu_count() or 2) // 2)
+    before = cv2.getNumThreads()
+    try:
+        with pytest.raises(ValueError):
+            set_threads(0)
+        set_threads(2)
+        assert cv2.getNumThreads() == 2
+    finally:
+        cv2.setNumThreads(before)
+
+
+def test_angle_identical_across_thread_counts() -> None:
+    import cv2
+
+    from rotest.register import register, set_threads
+    from synthetic import make_pair
+
+    mov, ref, _ = make_pair(12.0, 1.0)
+    before = cv2.getNumThreads()
+    try:
+        angles = []
+        for n in (1, 2, 4):
+            set_threads(n)
+            angles.append(register(mov, ref).angle_cw_deg)
+    finally:
+        cv2.setNumThreads(before)
+    assert angles[1] == pytest.approx(angles[0], abs=1e-9)
+    assert angles[2] == pytest.approx(angles[0], abs=1e-9)

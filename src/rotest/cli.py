@@ -7,9 +7,19 @@ import sys
 from collections.abc import Sequence
 
 from rotest.io import DEFAULT_WORK_SIZE, prepare
-from rotest.register import RegistrationError, register
+from rotest.register import RegistrationError, default_threads, register, set_threads
 from rotest.report import write_report
 from rotest.uncertainty import angle_ci95
+
+
+def _positive_int(text: str) -> int:
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid int value: {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return value
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -39,6 +49,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_WORK_SIZE,
         help="long side in pixels used for matching (default: %(default)s)",
     )
+    cmp.add_argument(
+        "--threads",
+        type=_positive_int,
+        default=default_threads(),
+        help="OpenCV threads to use (default: %(default)s, half of the logical cores)",
+    )
     cmp.add_argument("--out", default="results", help="output directory (default: %(default)s)")
     return parser
 
@@ -47,6 +63,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     """Run the CLI; returns the process exit code (0 ok, 1 failure, 2 bad usage)."""
     args = build_parser().parse_args(argv)
     try:
+        set_threads(args.threads)
         moving = prepare(args.moving, args.mask_moving, args.work_size)
         reference = prepare(args.reference, args.mask_reference, args.work_size)
         result = register(moving, reference)

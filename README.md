@@ -3,7 +3,7 @@
 Estimate the rotation, scale and translation between two overhead images of the same area — for example,
 a top-down render of a 3D model and an orthomosaic — **with a 95 % confidence interval**, and show the evidence.
 
-> **Status:** work in progress.
+> **Status:** the CLI and the optional local UI work.
 
 ## Why
 
@@ -25,11 +25,45 @@ focus is **verification**:
 
 Possible later work: a Fourier cross-check, a Bayesian estimator, a coverage benchmark and learned matching.
 
-## Planned usage
+## Usage
 
 ```bash
-rotest compare moving.png reference.png --mask-reference reference_mask.png --out results/
+uv sync
+uv run rotest compare moving.png reference.png --mask-reference reference_mask.png --out results/
 ```
+
+Options (see `rotest compare --help`): `--mask-moving`, `--mask-reference` (white = use, black = ignore),
+`--work-size` (long side in pixels used for matching, default 4000), `--threads` (OpenCV threads, default half of
+the logical cores) and `--out` (default `results`). It writes `results.json`, `overlay.png`, `checkerboard.png`
+and `summary.md`. Feature matching uses FLANN with a fixed seed, so repeated runs give the same result.
+
+### Output (`results.json`, schema v2)
+
+Besides the angle, its bootstrap interval `angle_ci95`, scale, translation, inliers and warnings, the file has:
+
+- `angle_uncertainty_deg`: total uncertainty, the bootstrap interval combined with a spatial consistency check;
+- `spatial_check`: the angle re-estimated in several image regions and its deviation from the global angle
+  (`angle_dev_deg`), which exposes systematic errors that the bootstrap alone cannot see.
+
+**Limitation:** with real data the total uncertainty still underestimates the variation between runs with
+different match sets by about 2x. Treat it as a lower
+bound when precision better than about 0.1 degrees matters.
+
+## Local UI
+
+An optional Streamlit interface runs the same pipeline from the browser:
+
+```bash
+uv sync --extra ui
+uv run rotest ui            # --port to change the port (default 8501)
+```
+
+Upload the two images (and optional masks), run, and inspect the overlay, checkerboard, matches, residuals,
+bootstrap distribution and spatial check. It includes a sign test (the moving image rotated by a known angle) and
+downloads for the results. Privacy: the server listens on localhost only, telemetry is disabled and nothing is
+uploaded anywhere. Without the `ui` extra, `rotest ui` prints a clear error and the CLI is unaffected.
+
+![Local UI with a synthetic pair rotated by 12 degrees](docs/img/ui.png)
 
 ## Angle convention
 

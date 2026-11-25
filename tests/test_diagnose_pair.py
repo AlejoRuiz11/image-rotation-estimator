@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Tests for scripts/diagnose_pair.py on synthetic pairs (no network, outputs in tmp dirs)."""
 
 import json

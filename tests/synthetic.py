@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Synthetic image-pair generator shared by the accuracy tests (no files, fixed seeds)."""
 
 from __future__ import annotations

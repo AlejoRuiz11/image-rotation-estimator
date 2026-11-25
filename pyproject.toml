@@ -3,6 +3,8 @@ name = "rotest"
 version = "0.1.0"
 description = "Estimate rotation, scale and shift between two top-down images, with a confidence interval."
 readme = "README.md"
+authors = [{ name = "Fabian Alejandro Ruiz Osorio" }]
+license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "numpy",

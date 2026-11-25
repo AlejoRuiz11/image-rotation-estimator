@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Command-line interface: `rotest compare MOVING REFERENCE` and `rotest ui`."""
 
 from __future__ import annotations
@@ -9,6 +11,7 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+import rotest
 from rotest.io import DEFAULT_WORK_SIZE, prepare
 from rotest.register import RegistrationError, default_threads, register, set_threads
 from rotest.report import write_report
@@ -30,6 +33,8 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rotest",
         description="Estimate rotation, scale and shift between two top-down images.",
     )
+    parser.add_argument("--version", action="version",
+                        version=f"%(prog)s {rotest.__version__} - {rotest.__copyright__}")
     sub = parser.add_subparsers(dest="command", required=True)
     cmp = sub.add_parser(
         "compare",

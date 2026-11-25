@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Registration tests on synthetic images (fixed seed, no network)."""
 
 from __future__ import annotations

@@ -1,5 +1,7 @@
 # image-rotation-estimator
 
+**Author:** Fabian Alejandro Ruiz Osorio ([@AlejoRuiz11](https://github.com/AlejoRuiz11)) · MIT License
+
 Estimate the rotation, scale and translation between two overhead images of the same area — for example,
 a top-down render of a 3D model and an orthomosaic — **with a 95 % confidence interval**, and show the evidence.
 
@@ -71,6 +73,11 @@ uploaded anywhere. Without the `ui` extra, `rotest ui` prints a clear error and 
 align it with the **reference** image. If the reference is north-up, `angle_cw_deg` is the compass heading of the
 moving image's "up" direction. The convention is pinned by tests with known synthetic rotations.
 
-## License
+## Author and license
 
-MIT. See [`LICENSE`](LICENSE).
+Designed and written by **Fabian Alejandro Ruiz Osorio** ([@AlejoRuiz11](https://github.com/AlejoRuiz11)): the method, the code, the tests
+and the documentation. Copyright (c) 2026 Fabian Alejandro Ruiz Osorio.
+
+Released under the MIT License, see [LICENSE](LICENSE) and [NOTICE](NOTICE). You may use, modify and redistribute
+it, including inside other projects, **as long as the copyright notice with the author's name is kept**. If you use it
+in published work, please cite it ([CITATION.cff](CITATION.cff)).

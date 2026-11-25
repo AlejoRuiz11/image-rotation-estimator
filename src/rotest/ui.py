@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Local Streamlit app (optional `ui` extra): a thin layer over the same API as the CLI.
 
 The calculation helpers (`run_pipeline`, `sign_test`, `overall_fraction`) never touch `st`, so
@@ -18,6 +20,7 @@ import streamlit as st
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
+import rotest
 from rotest.geometry import normalize_angle
 from rotest.io import DEFAULT_WORK_SIZE, Prepared, prepare
 from rotest.register import (
@@ -285,6 +288,7 @@ def _app() -> None:
     st.set_page_config(page_title="rotest", layout="wide")
     st.title("Image rotation estimator")
     st.caption("Runs locally: nothing is uploaded anywhere.")
+    st.caption(f"rotest {rotest.__version__} · {rotest.__copyright__} · MIT License")
 
     col_a, col_b = st.columns(2)
     moving_up = col_a.file_uploader("Moving image", key="moving")

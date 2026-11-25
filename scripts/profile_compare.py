@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Profile the full `rotest compare` pipeline on a large synthetic pair.
 
 Usage: uv run python scripts/profile_compare.py [--work-size N] [--threads N] [--grid] [--sign]

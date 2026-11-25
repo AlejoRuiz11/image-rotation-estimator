@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Diagnose why the angle of a pair moves with the matcher or the image zone.
 
 Usage: uv run python scripts/diagnose_pair.py MOVING REFERENCE --out DIR [--mask-moving M]

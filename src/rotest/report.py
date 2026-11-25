@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Write registration outputs: results.json, overlay.png, checkerboard.png, summary.md."""
 
 from __future__ import annotations

@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "image-rotation-estimator (rotest)"
+abstract: "Estimate rotation, scale and shift between two top-down images, with a 95 % confidence interval."
+authors:
+  - family-names: "Ruiz Osorio"
+    given-names: "Fabian Alejandro"
+    alias: "AlejoRuiz11"
+version: "0.1.0"
+date-released: "2026-11-25"
+license: MIT
+repository-code: "https://github.com/AlejoRuiz11/image-rotation-estimator"

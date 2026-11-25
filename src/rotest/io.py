@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Image loading and preparation: grayscale, optional mask, CLAHE, downscaling."""
 
 from __future__ import annotations

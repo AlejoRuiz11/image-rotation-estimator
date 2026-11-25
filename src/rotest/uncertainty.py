@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Fabian Alejandro Ruiz Osorio (AlejoRuiz11)
 """Bootstrap confidence interval for the angle and a spatial-consistency check."""
 
 from __future__ import annotations
